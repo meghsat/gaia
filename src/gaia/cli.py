@@ -2132,6 +2132,52 @@ Examples:
     )
     mcp_test_client_parser.add_argument("name", help="Name of the MCP server to test")
 
+    # Refinement review service (Hermes is the coder; GAIA is the judge)
+    refine_parser = subparsers.add_parser(
+        "refine",
+        help="GAIA refinement review service — Hermes calls this between coding iterations",
+        parents=[parent_parser],
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Sub-commands:
+  gaia refine serve   Start the review service that Hermes calls between iterations
+        """,
+    )
+    refine_subparsers = refine_parser.add_subparsers(
+        dest="refine_action", help="Refinement action"
+    )
+
+    # --- gaia refine serve ---
+    refine_serve_parser = refine_subparsers.add_parser(
+        "serve",
+        help="Start the GAIA review service (Hermes calls this between coding iterations)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Workflow:
+  1. Start the review service:
+       gaia refine serve --critic-model Qwen3.6-35B-A3B-GGUF
+
+  2. In Hermes, load the gaia-review skill and point it at your assets:
+       assets_dir: /home/amd/.hermes/multi-agent/assets
+
+  3. Hermes starts a session, codes with the NPU model, calls POST /review,
+     gets an improvement map, fixes the issues, and repeats until satisfied.
+
+  4. When satisfied, GAIA writes a bundle to ~/.gaia/bundles/<use_case>/.
+        """,
+    )
+    refine_serve_parser.add_argument(
+        "--port", type=int, default=8899, help="Port to listen on (default: 8899)"
+    )
+    refine_serve_parser.add_argument(
+        "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
+    )
+    refine_serve_parser.add_argument(
+        "--critic-model",
+        default="Qwen3.6-35B-A3B-GGUF",
+        help="Lemonade model ID for the big-model critic (default: Qwen3.6-35B-A3B-GGUF)",
+    )
+
     # Cache command (for Context7 cache management)
     cache_parser = subparsers.add_parser(
         "cache", help="Manage Context7 API cache and rate limiting"
@@ -3546,6 +3592,22 @@ Let me know your answer!
 
     if args.action == "perf-vis":
         handle_perf_vis_command(args)
+        return
+
+    if args.action == "refine":
+        refine_action = getattr(args, "refine_action", None)
+
+        if refine_action == "serve":
+            from gaia.refine.server import serve
+            serve(
+                host=args.host,
+                port=args.port,
+                critic_model=args.critic_model,
+            )
+            return
+
+        # No sub-command: print help
+        refine_parser.print_help()
         return
 
     # Handle init command
