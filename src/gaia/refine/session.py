@@ -74,7 +74,7 @@ class Session:
                 "final_score": self.final_score,
                 "satisfied": self.satisfied,
             }
-            (d / "session.json").write_text(json.dumps(session_meta, indent=2))
+            (d / "session.json").write_text(json.dumps(session_meta, indent=2), encoding="utf-8")
 
             # ── iteration-N.json (raw review data) ──
             items_data = [
@@ -91,7 +91,7 @@ class Session:
                 "improvement_map_text": improvement_map.to_prompt_injection(),
             }
             (d / f"iteration-{self.iterations}.json").write_text(
-                json.dumps(review_data, indent=2)
+                json.dumps(review_data, indent=2), encoding="utf-8"
             )
 
             # ── iteration-N.md (human-readable) ──
@@ -122,16 +122,16 @@ class Session:
 # ---------------------------------------------------------------------------
 
 def _write_iteration_md(session_dir: Path, iteration: int, data: dict) -> None:
-    icons = {"critical": "🔴", "major": "🟡", "minor": "🔵"}
+    icons = {"critical": "[CRITICAL]", "major": "[MAJOR]", "minor": "[MINOR]"}
     satisfied = data["is_satisfied"]
     lines = [
-        f"# GAIA Review — Iteration {iteration}",
+        f"# GAIA Review - Iteration {iteration}",
         "",
         f"| | |",
         f"|---|---|",
         f"| **Date** | {data['timestamp']} |",
         f"| **Score** | **{data['score']}/10** |",
-        f"| **Status** | {'✅ SATISFIED' if satisfied else '🔄 NEEDS WORK'} |",
+        f"| **Status** | {'SATISFIED' if satisfied else 'NEEDS WORK'} |",
         "",
         "## Summary",
         "",
@@ -142,9 +142,9 @@ def _write_iteration_md(session_dir: Path, iteration: int, data: dict) -> None:
     if items:
         lines += [f"## Issues ({len(items)} total)", ""]
         for i, item in enumerate(items, 1):
-            icon = icons.get(item["severity"], "•")
+            icon = icons.get(item["severity"], "[MAJOR]")
             lines += [
-                f"### {icon} Issue {i} — [{item['severity'].upper()}]",
+                f"### {icon} Issue {i}",
                 "",
                 f"**Problem:** {item['issue']}",
                 "",
@@ -158,35 +158,36 @@ def _write_iteration_md(session_dir: Path, iteration: int, data: dict) -> None:
     if map_text:
         lines += ["## Improvement Map (paste into Hermes)", "", "```", map_text, "```", ""]
 
-    (session_dir / f"iteration-{iteration}.md").write_text("\n".join(lines))
+    (session_dir / f"iteration-{iteration}.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _append_review_log(session_dir: Path, iteration: int, data: dict, task: str) -> None:
     log_path = session_dir / "REVIEW_LOG.md"
-    icons = {"critical": "🔴", "major": "🟡", "minor": "🔵"}
+    icons = {"critical": "[CRITICAL]", "major": "[MAJOR]", "minor": "[MINOR]"}
 
     if not log_path.exists():
         log_path.write_text(
             f"# GAIA Review Log\n\n"
             f"**Session dir:** `{session_dir}`  \n"
             f"**Task:** {task[:300]}{'...' if len(task) > 300 else ''}  \n\n"
-            f"---\n"
+            f"---\n",
+            encoding="utf-8",
         )
 
     satisfied = data["is_satisfied"]
-    status = "✅ SATISFIED" if satisfied else "🔄 NEEDS WORK"
+    status = "SATISFIED" if satisfied else "NEEDS WORK"
     with open(log_path, "a", encoding="utf-8") as f:
-        f.write(f"\n## Iteration {iteration} — Score {data['score']}/10 — {status}\n\n")
+        f.write(f"\n## Iteration {iteration} - Score {data['score']}/10 - {status}\n\n")
         f.write(f"_{data['timestamp']}_\n\n")
         f.write(f"**{data['summary']}**\n\n")
         items = data.get("items", [])
         if items:
             for item in items:
-                icon = icons.get(item["severity"], "•")
-                f.write(f"- {icon} `{item['severity'].upper()}` {item['issue']}\n")
+                icon = icons.get(item["severity"], "[MAJOR]")
+                f.write(f"- {icon} {item['issue']}\n")
         else:
             f.write("No issues.\n")
-        f.write(f"\n[Full review →](iteration-{iteration}.md)  \n\n---\n")
+        f.write(f"\n[Full review](iteration-{iteration}.md)  \n\n---\n")
 
 
 class SessionStore:

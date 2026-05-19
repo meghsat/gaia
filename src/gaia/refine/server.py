@@ -367,24 +367,36 @@ def _discover_wireframes(assets_dir: Optional[str]) -> list[str]:
 def _wsl_to_windows(path: str) -> str:
     """Convert a WSL absolute path to its Windows UNC equivalent.
 
-    /home/user/foo  →  \\\\wsl.localhost\\Ubuntu-24.04\\home\\user\\foo
+    Uses `wslpath -w` (most reliable — handles any distro name and mountpoint)
+    then falls back to manual UNC construction.
 
-    Falls back to the original string when it is already a Windows path or
-    when the WSL distro name cannot be determined.
+    /home/user/foo  →  \\\\wsl.localhost\\Ubuntu-24.04\\home\\user\\foo
     """
-    import subprocess, re
+    import subprocess
     if not path.startswith("/"):
         return path  # already a Windows path
+    # Primary: let WSL's own wslpath convert the path — authoritative
     try:
         result = subprocess.run(
+            ["wsl.exe", "wslpath", "-w", path],
+            capture_output=True, text=True, timeout=5,
+        )
+        converted = result.stdout.strip()
+        if result.returncode == 0 and converted:
+            logger.debug("wslpath: %s → %s", path, converted)
+            return converted
+    except Exception as exc:
+        logger.debug("wslpath failed (%s) — falling back to manual UNC construction", exc)
+    # Fallback: manual UNC construction (strip null bytes from --list output)
+    try:
+        list_result = subprocess.run(
             ["wsl.exe", "--list", "--quiet"],
             capture_output=True, text=True, timeout=5,
         )
-        # Pick the first non-empty, non-Docker distro
         distros = [
-            l.strip().rstrip("\x00")
-            for l in result.stdout.splitlines()
-            if l.strip() and "docker" not in l.lower()
+            l.strip().replace("\x00", "")
+            for l in list_result.stdout.splitlines()
+            if l.strip().replace("\x00", "") and "docker" not in l.lower()
         ]
         distro = distros[0] if distros else "Ubuntu-24.04"
     except Exception:

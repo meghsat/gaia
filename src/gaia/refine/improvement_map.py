@@ -45,11 +45,11 @@ class ImprovementMap:
         if not self.items:
             lines.append("  No issues found.")
         else:
-            _icons = {Severity.CRITICAL: "🔴", Severity.MAJOR: "🟡", Severity.MINOR: "🔵"}
+            _tags = {Severity.CRITICAL: "[CRITICAL]", Severity.MAJOR: "[MAJOR]", Severity.MINOR: "[MINOR]"}
             for item in self.items:
-                icon = _icons.get(item.severity, "•")
-                lines.append(f"\n{icon} [{item.severity.value.upper()}] {item.issue}")
-                lines.append(f"     → FIX: {item.fix}")
+                tag = _tags.get(item.severity, "[MAJOR]")
+                lines.append(f"\n{tag} {item.issue}")
+                lines.append(f"     -> FIX: {item.fix}")
         lines.append("")
         return "\n".join(lines)
 
